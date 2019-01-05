@@ -5,11 +5,13 @@
 // Dependencies
 const http = require('http');
 const url = require('url');
+const { URL } = require('url');
 
 // Server responds to all requests with a string
 var server = http.createServer(function(req, resp){
   // parse url
-  let parsedUrl = url.parse(req.url, true);
+  console.log("----" + req.url);
+  let parsedUrl = new URL(req.url);
  
   // get path
   let path = parsedUrl.pathname;
