@@ -31,18 +31,44 @@ var server = http.createServer(function(req, resp){
   req.on('data', function(data){
     buffer += decoder.write(data)
   });
+
   req.on('end', function(){
     buffer += decoder.end();
 
-    // send response
-    resp.end('Hello, World!\n');
+    // choose proper handler, or notFound
+    let chosenHandler = typeof(router[trimmedPath]) !== 'undefined' ? router[trimmedPath] : handlers.notFound;
 
-    // log request path
-    console.log(`Received ${method} request for path ${trimmedPath} with query params:`);
-    console.log(queryStringObject);
-    console.log('and headers:');
-    console.log(headers);
-    console.log(`with payload: \"${buffer}\"`);
+    // construct data object to pass to handler
+    let data = {
+      'reqPath' : trimmedPath,
+      'headers' : headers,
+      'method' : method,
+      'query' : queryStringObject,
+      'payload' : buffer
+    };
+
+    // log request data
+    logRequestData(data);
+
+    // send data to chosen handler
+    chosenHandler(data, function(statusCode, payload) {
+      // use returned status or default to 200
+      statusCode = typeof(statusCode) == 'number' ? statusCode : 200;
+
+      // use returned payload or empty object
+      payload = typeof(payload) == 'object' ? payload : {};
+
+      // convert payload to JSON string
+      payloadString = JSON.stringify(payload);
+
+      // send response
+      resp.writeHead(statusCode);
+      resp.end(payloadString);
+
+      // log response data
+      console.log(`Sent response with status code ${statusCode}`)
+      console.log('and payload: ' + payload);
+    });
   });
 });
 
@@ -50,4 +76,26 @@ var server = http.createServer(function(req, resp){
 server.listen(3000, function(){
   console.log("Server listening on port 3000.");
 });
+
+let handlers = {};
+
+handlers.sample = function(data, callback) {
+  // callback http status code and payload object
+  callback(406, {'name' : 'sample handler'});
+};
+
+handlers.notFound = function(data, callback) {
+  callback(404)
+};
+
+const router = {
+  'sample' : handlers.sample
+};
+
+const logRequestData = function(data) {
+  console.log(`Received ${data.method} request for path ${data.reqPath}`);
+  console.log('with query params: ', data.query);
+  console.log('and headers: ', data.headers);
+  console.log('and payload: ', data.payload);
+};
 
