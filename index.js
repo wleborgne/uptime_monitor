@@ -1,14 +1,40 @@
 /*
- * Starting point for uptime monitor API server
- */
+ * Starting point for uptime monitor API server */
 
 // Dependencies
 const http = require('http');
+const https = require('https');
 const url = require('url');
+const fs = require('fs');
 const { StringDecoder } = require('string_decoder');
+const config = require('./config');
 
-// Server responds to all requests with a string
-var server = http.createServer(function(req, resp){
+// Define HTTP server
+const httpServer = http.createServer(function(req, resp){
+  unifiedServer(req, resp)
+});
+  
+// Define HTTPS options and server
+const httpsServerOptions = {
+  'key' : fs.readFileSync('./https/key.pem'),
+  'cert' : fs.readFileSync('./https/cert.pem')
+};
+
+const httpsServer = https.createServer(httpsServerOptions, function(req, resp){
+  unifiedServer(req, resp)
+});
+
+// Start the HTTP server
+httpServer.listen(config.httpPort, function(){
+  console.log(`Server listening in ${config.envName} mode on port ${config.httpPort}.`);
+});
+
+// Start the HTTPS server
+httpsServer.listen(config.httpsPort, function(){
+  console.log(`Server listening in ${config.envName} mode on port ${config.httpsPort}.`);
+});
+  
+const unifiedServer = function(req, resp){
   // parse url
   let parsedUrl = url.parse(req.url, true);
  
@@ -62,34 +88,30 @@ var server = http.createServer(function(req, resp){
       payloadString = JSON.stringify(payload);
 
       // send response
+      resp.setHeader('Content-Type', 'application/json');
       resp.writeHead(statusCode);
       resp.end(payloadString);
 
       // log response data
       console.log(`Sent response with status code ${statusCode}`)
-      console.log('and payload: ' + payload);
+      console.log(`and payload ${payloadString}`);
     });
   });
-});
+};
 
-// Start the server, listen on port 3000
-server.listen(3000, function(){
-  console.log("Server listening on port 3000.");
-});
 
 let handlers = {};
 
-handlers.sample = function(data, callback) {
-  // callback http status code and payload object
-  callback(406, {'name' : 'sample handler'});
-};
+handlers.ping = function(data, callback) {
+  callback(200);
+}
 
 handlers.notFound = function(data, callback) {
   callback(404)
 };
 
 const router = {
-  'sample' : handlers.sample
+  'ping' : handlers.ping
 };
 
 const logRequestData = function(data) {
